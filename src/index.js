@@ -36,7 +36,7 @@ puppeteer.use(AdblockerPlugin());
         const page = await browser.newPage();
         await page.waitForTimeout(2000)
         try {
-            for (let i = 0; i < 30; i++) {
+            for (let i = 1; i < 30; i++) {
                 url = `https://www.kaggle.com/datasets?topic=trendingDataset&page=${i}`;
                 await page.goto(url);
                 await page.waitForSelector('li[role="listitem"]');
