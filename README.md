@@ -22,3 +22,5 @@
 ![Dataset Image](https://github.com/jarrettdev/Kaggle-Ranch/blob/main/resources/kaggle_dataset_page.png)
 
 ![Performance Picture](https://github.com/jarrettdev/Kaggle-Ranch/blob/main/resources/model_performance.png)
+
+![Directory Image](https://github.com/jarrettdev/Kaggle-Ranch/blob/main/resources/Directory.png)
