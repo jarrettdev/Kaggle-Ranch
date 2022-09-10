@@ -68,286 +68,311 @@ for kaggle_dir in kaggle_directories:
             try:
                 df[df.columns[i]] = df[df.columns[i]].astype(float)
                 target = df.columns[i]
-                break
             except:
-                pass
-        print(f'Target Variable: {target}')
-        
+                continue
+            print(f'Target Variable: {target}')
+            #Will be determined by the file name
+            PROJECT_NAME = project_name
+            PARAM_DIR = param_dir
+            TARGET = target
+            VARIABLE_FILES = False
+            SAMPLE_COUNT = 1000
 
-        #Will be determined by the file name
-        PROJECT_NAME = project_name
-        PARAM_DIR = param_dir
-        TARGET = target
-        VARIABLE_FILES = False
-        SAMPLE_COUNT = 1000
-
-        FASTAI_LEARNING_RATE = 1e-3
-        #Set to True automatically infer if variables are categorical or continuous
-        ENABLE_BREAKPOINT = True
-        #When trying to declare a column a continuous variable, if it fails, convert it to a categorical variable
-        CONVERT_TO_CAT = False
-        REGRESSOR = True
-        SEP_DOLLAR = True
-        SEP_PERCENT = True
-        SHUFFLE_DATA = True
+            FASTAI_LEARNING_RATE = 1e-3
+            #Set to True automatically infer if variables are categorical or continuous
+            ENABLE_BREAKPOINT = True
+            #When trying to declare a column a continuous variable, if it fails, convert it to a categorical variable
+            CONVERT_TO_CAT = False
+            REGRESSOR = True
+            SEP_DOLLAR = True
+            SEP_PERCENT = True
+            SHUFFLE_DATA = True
 
 
-        #===================================================================================================
+            #===================================================================================================
 
-        #Create project config files if they don't exist.
-        if not os.path.exists(PARAM_DIR):
-            #create param_dir
-            os.makedirs(PARAM_DIR)
-        if not os.path.exists(f'{PARAM_DIR}/cats.txt'):
-            #create param_dir
-            with open(f'{PARAM_DIR}/cats.txt', 'w') as f:
-                f.write('')
-        if not os.path.exists(f'{PARAM_DIR}/conts.txt'):
-            #create param_dir
-            with open(f'{PARAM_DIR}/conts.txt', 'w') as f:
-                f.write('')
-        if not os.path.exists(f'{PARAM_DIR}/cols_to_delete.txt'):
-            with open(f'{PARAM_DIR}/cols_to_delete.txt', 'w') as f:
-                f.write('')
+            #Create project config files if they don't exist.
+            if not os.path.exists(PARAM_DIR):
+                #create param_dir
+                os.makedirs(PARAM_DIR)
+            if not os.path.exists(f'{PARAM_DIR}/cats.txt'):
+                #create param_dir
+                with open(f'{PARAM_DIR}/cats.txt', 'w') as f:
+                    f.write('')
+            if not os.path.exists(f'{PARAM_DIR}/conts.txt'):
+                #create param_dir
+                with open(f'{PARAM_DIR}/conts.txt', 'w') as f:
+                    f.write('')
+            if not os.path.exists(f'{PARAM_DIR}/cols_to_delete.txt'):
+                with open(f'{PARAM_DIR}/cols_to_delete.txt', 'w') as f:
+                    f.write('')
 
-        try:
-            df = pd.read_csv(f'{PARAM_DIR}/data.csv', nrows=SAMPLE_COUNT)
-        except:
-            print('No data.csv file found. Please place a csv named data.csv in the project directory.')
-            sys.exit()
-
-        df = df.drop_duplicates()
-        if SHUFFLE_DATA:
-            df = df.sample(frac=1).reset_index(drop=True)
-
-        # workaround for fastai/pytorch bug where bool is treated as object and thus erroring out.
-        for n in df:
-            if pd.api.types.is_bool_dtype(df[n]):
-                df[n] = df[n].astype('uint8')
-        if SEP_DOLLAR:
-            #For every column in df, if the column contains a $, make a new column with the value without the $
-            for col in df.columns:
-                if '$' in df[col].to_string():
-                    df[col + '_no_dollar'] = df[col].str.replace('$', '').str.replace(',', '')
-
-
-        if SEP_PERCENT:
-            #For every column in df, if the column contains a %, make a new column with the value without the %
-            for col in df.columns:
-                if '%' in df[col].to_string():
-                    df[col + '_no_percent'] = df[col].str.replace('%', '').str.replace(',', '')
-
-        with open(f'{PARAM_DIR}/cols_to_delete.txt', 'r') as f:
-            cols_to_delete = f.read().splitlines()
-        for col in cols_to_delete:
             try:
-                del(df[col])
+                df = pd.read_csv(f'{PARAM_DIR}/data.csv', nrows=SAMPLE_COUNT)
             except:
-                pass
-        df = df.fillna(0)
-        print(df.isna().sum().sort_values(ascending=False))
-        #shrink df as much as possible
-        df = df_shrink(df)
+                print('No data.csv file found. Please place a csv named data.csv in the project directory.')
+                sys.exit()
+
+            df = df.drop_duplicates()
+            if SHUFFLE_DATA:
+                df = df.sample(frac=1).reset_index(drop=True)
+
+            # workaround for fastai/pytorch bug where bool is treated as object and thus erroring out.
+            for n in df:
+                if pd.api.types.is_bool_dtype(df[n]):
+                    df[n] = df[n].astype('uint8')
+            if SEP_DOLLAR:
+                #For every column in df, if the column contains a $, make a new column with the value without the $
+                for col in df.columns:
+                    if '$' in df[col].to_string():
+                        df[col + '_no_dollar'] = df[col].str.replace('$', '').str.replace(',', '')
 
 
-        #print types inside of df
-        print(df.dtypes)
+            if SEP_PERCENT:
+                #For every column in df, if the column contains a %, make a new column with the value without the %
+                for col in df.columns:
+                    if '%' in df[col].to_string():
+                        df[col + '_no_percent'] = df[col].str.replace('%', '').str.replace(',', '')
 
-
-        #Auto detect categorical and continuous variables
-        #==============================================================================
-        likely_cat = {}
-        for var in df.columns:
-            likely_cat[var] = 1.*df[var].nunique()/df[var].count() < 0.05 #or some other threshold
-
-        cats = [var for var in df.columns if likely_cat[var]]
-        conts = [var for var in df.columns if not likely_cat[var]]
-
-        #remove target from lists
-        try:
-            conts.remove(TARGET)
-            cats.remove(TARGET)
-        except:
-            pass
-        #Convert target to float
-        df[TARGET] = df[TARGET].astype(float)
-
-        print('CATS=====================')
-        print(cats)
-        print('CONTS=====================')
-        print(conts)
-
-        #==============================================================================
-
-        #Populate categorical and continuous lists
-        #==============================================================================
-
-        if VARIABLE_FILES == True:
-            with open(f'{PARAM_DIR}/cats.txt', 'r') as f:
-                cats = f.read().splitlines()
-
-            with open(f'{PARAM_DIR}/conts.txt', 'r') as f:
-                conts = f.read().splitlines()
-
-        #==============================================================================
-        procs = [Categorify, FillMissing, Normalize]
-        print(df.describe().T)
-        df = df[0:SAMPLE_COUNT]
-        splits = RandomSplitter()(range_of(df))
-
-        print((len(cats)) + len(conts))
-        #conts = []
-
-        #Convert cont variables to floats
-        #==============================================================================
-
-        for var in conts:
-            try:
-                df[var] = df[var].astype(float)
-            except:
-                print(f'Could not convert {var} to float.')
-                pass
-
-        #==============================================================================
-
-        #Experimental logic to add columns one-by-one to find a breakpoint
-        #==============================================================================
-        if ENABLE_BREAKPOINT == True:
-            temp_procs = [Categorify, FillMissing]
-            print('Looping through continuous variables to find breakpoint')
-            cont_list = []
-            for cont in conts:
-                focus_cont = cont
-                cont_list.append(cont)
-                print(focus_cont)
+            with open(f'{PARAM_DIR}/cols_to_delete.txt', 'r') as f:
+                cols_to_delete = f.read().splitlines()
+            for col in cols_to_delete:
                 try:
-                    to = TabularPandas(df, procs=procs, cat_names=cats, cont_names=cont_list, y_names=TARGET, y_block=RegressionBlock(), splits=splits)
-                    del(to)
+                    del(df[col])
                 except:
-                    print('Error with ', focus_cont)
-                    #remove focus_cont from list
-                    cont_list.remove(focus_cont)
-                    if CONVERT_TO_CAT == True:
-                        cats.append(focus_cont)
-                    #traceback.print_exc()
-                    continue
-            #convert all continuous variables to floats
-            for var in cont_list:
+                    pass
+            df = df.fillna(0)
+            print(df.isna().sum().sort_values(ascending=False))
+            #shrink df as much as possible
+            df = df_shrink(df)
+
+
+            #print types inside of df
+            print(df.dtypes)
+
+
+            #Auto detect categorical and continuous variables
+            #==============================================================================
+            likely_cat = {}
+            for var in df.columns:
+                likely_cat[var] = 1.*df[var].nunique()/df[var].count() < 0.05 #or some other threshold
+
+            cats = [var for var in df.columns if likely_cat[var]]
+            conts = [var for var in df.columns if not likely_cat[var]]
+
+            #remove target from lists
+            try:
+                conts.remove(target)
+                cats.remove(target)
+            except:
+                pass
+            #Convert target to float
+            df[target] = df[target].astype(float)
+
+            print('CATS=====================')
+            print(cats)
+            print('CONTS=====================')
+            print(conts)
+
+            #==============================================================================
+
+            #Populate categorical and continuous lists
+            #==============================================================================
+
+            if VARIABLE_FILES == True:
+                with open(f'{PARAM_DIR}/cats.txt', 'r') as f:
+                    cats = f.read().splitlines()
+
+                with open(f'{PARAM_DIR}/conts.txt', 'r') as f:
+                    conts = f.read().splitlines()
+
+            #==============================================================================
+            procs = [Categorify, FillMissing, Normalize]
+            print(df.describe().T)
+            df = df[0:SAMPLE_COUNT]
+            splits = RandomSplitter()(range_of(df))
+
+            print((len(cats)) + len(conts))
+            #conts = []
+
+            #Convert cont variables to floats
+            #==============================================================================
+
+            for var in conts:
                 try:
                     df[var] = df[var].astype(float)
                 except:
                     print(f'Could not convert {var} to float.')
-                    cont_list.remove(var)
-                    if CONVERT_TO_CAT == True:
-                        cats.append(var)
                     pass
-            print(f'Continuous variables that made the cut : {cont_list}')
-            print(f'Categorical variables that made the cut : {cats}')
-            #shrink df as much as possible
-            df = df_shrink(df)
-            print(df.dtypes)
 
-        #==============================================================================
-        #Creating tabular object + quick preprocessing
-        #==============================================================================
-        to = None
-        if REGRESSOR == True:
-            try:
-                to = TabularPandas(df, procs, cats, conts, TARGET, y_block=RegressionBlock(), splits=splits)
-            except:
-                conts = []
-                to = TabularPandas(df, procs, cats, conts, TARGET, y_block=RegressionBlock(), splits=splits)
-        else:
-            try:
-                to = TabularPandas(df, procs, cats, conts, TARGET, splits=splits)
-            except:
-                conts = []
-                to = TabularPandas(df, procs, cats, conts, TARGET, splits=splits)
+            #==============================================================================
 
-        #print(dir(to))
-        print(to.xs)
-        dls = to.dataloaders()
-        print(f'Tabular Object size: {len(to)}')
-        dls.one_batch()
-        #==============================================================================
+            #Experimental logic to add columns one-by-one to find a breakpoint
+            #==============================================================================
+            if ENABLE_BREAKPOINT == True:
+                temp_procs = [Categorify, FillMissing]
+                print('Looping through continuous variables to find breakpoint')
+                cont_list = []
+                for cont in conts:
+                    focus_cont = cont
+                    cont_list.append(cont)
+                    print(focus_cont)
+                    try:
+                        to = TabularPandas(df, procs=procs, cat_names=cats, cont_names=cont_list, y_names=target, y_block=RegressionBlock(), splits=splits)
+                        del(to)
+                    except:
+                        print('Error with ', focus_cont)
+                        #remove focus_cont from list
+                        cont_list.remove(focus_cont)
+                        if CONVERT_TO_CAT == True:
+                            cats.append(focus_cont)
+                        #traceback.print_exc()
+                        continue
+                #convert all continuous variables to floats
+                for var in cont_list:
+                    try:
+                        df[var] = df[var].astype(float)
+                    except:
+                        print(f'Could not convert {var} to float.')
+                        cont_list.remove(var)
+                        if CONVERT_TO_CAT == True:
+                            cats.append(var)
+                        pass
+                print(f'Continuous variables that made the cut : {cont_list}')
+                print(f'Categorical variables that made the cut : {cats}')
+                #shrink df as much as possible
+                df = df_shrink(df)
+                print(df.dtypes)
 
-        #Extracting train and test sets from tabular object
-        #==============================================================================
+            #==============================================================================
+            #Creating tabular object + quick preprocessing
+            #==============================================================================
+            to = None
+            if REGRESSOR == True:
+                try:
+                    to = TabularPandas(df, procs, cats, conts, target, y_block=RegressionBlock(), splits=splits)
+                except:
+                    conts = []
+                    to = TabularPandas(df, procs, cats, conts, target, y_block=RegressionBlock(), splits=splits)
+            else:
+                try:
+                    to = TabularPandas(df, procs, cats, conts, target, splits=splits)
+                except:
+                    conts = []
+                    to = TabularPandas(df, procs, cats, conts, target, splits=splits)
 
-        X_train, y_train = to.train.xs, to.train.ys.values.ravel()
-        X_test, y_test = to.valid.xs, to.valid.ys.values.ravel()
+            #print(dir(to))
+            print(to.xs)
+            dls = to.dataloaders()
+            print(f'Tabular Object size: {len(to)}')
+            dls.one_batch()
+            #==============================================================================
 
-        #==============================================================================
+            #Extracting train and test sets from tabular object
+            #==============================================================================
 
-        #Ready for model selection!
+            X_train, y_train = to.train.xs, to.train.ys.values.ravel()
+            X_test, y_test = to.valid.xs, to.valid.ys.values.ravel()
+            #create dataframe from X_train and y_train
+            #export tabular object to csv
+            pd.DataFrame(X_train).to_csv(f'{PARAM_DIR}/X_train_{target}.csv', index=False)
+            pd.DataFrame(X_test).to_csv(f'{PARAM_DIR}/X_test_{target}.csv', index=False)
+            pd.DataFrame(y_train).to_csv(f'{PARAM_DIR}/y_train_{target}.csv', index=False)
+            pd.DataFrame(y_test).to_csv(f'{PARAM_DIR}/y_test_{target}.csv', index=False)
 
-        if REGRESSOR == True:
-            try:
-                reg = LazyRegressor(verbose=2, ignore_warnings=False, custom_metric=None)
-                models, predictions = reg.fit(X_train, X_test, y_train, y_test)
-                print(models)
-                models['project'] = PROJECT_NAME
-                models.to_csv(f'{PARAM_DIR}/regression_results.csv', mode='a', header=False)
-            except:
-                print('Issue during lazypredict analysis')
-        else:
-            try:
-                clf = LazyClassifier(verbose=2, ignore_warnings=False, custom_metric=None)
-                models, predictions = clf.fit(X_train, X_test, y_train, y_test)
-                print(models)
-                models.to_csv(f'{PARAM_DIR}/classification_results.csv', mode='a', header=False)
-            except:
-                print('Issue during lazypredict analysis')
+            #==============================================================================
+
+            #Ready for model selection!
+
+            if REGRESSOR == True:
+                try:
+                    reg = LazyRegressor(verbose=2, ignore_warnings=False, custom_metric=None)
+                    models, predictions = reg.fit(X_train, X_test, y_train, y_test)
+                    print(f'Project: {PROJECT_NAME}')
+                    print(PROJECT_NAME)
+                    print(f'Target: {target}')
+                    print(target)
+                    target_std = y_train.std()
+                    print(f'Target Standard Deviation: {target_std}')
+                    print(models)
+                    models['project'] = PROJECT_NAME
+                    models['target'] = target
+                    models['target_std'] = target_std
+                    models.to_csv(f'{PARAM_DIR}/regression_results_{target}.csv', mode='a', header=True)
+                except:
+                    print('Issue during lazypredict analysis')
+            else:
+                #TODO: remove this
+                try:
+                    clf = LazyClassifier(verbose=2, ignore_warnings=False, custom_metric=None)
+                    models, predictions = clf.fit(X_train, X_test, y_train, y_test)
+                    print(f'Project: {PROJECT_NAME}')
+                    print(PROJECT_NAME)
+                    print(f'Target: {target}')
+                    print(target)
+                    print(f'Target Standard Deviation: {y_train.std()}')
+                    print(models)
+                    models.to_csv(f'{PARAM_DIR}/classification_results.csv', mode='a', header=False)
+                except:
+                    print('Issue during lazypredict analysis')
 
 
 
-        model_name = 'tabnet'
+            model_name = 'tabnet'
 
-        # FastAI + pre-trained TabNet
-        #==============================================================================
-        learn = None
-        i = 0
-        while True:
-            try:
-                del learn
-            except:
-                pass
-            learn = 0
-            model = TabNetModel(get_emb_sz(to), len(to.cont_names), dls.c, n_d=64, n_a=64, n_steps=5, virtual_batch_size=256)
-            # save the best model so far
-            cbs = [SaveModelCallback(monitor='_rmse', comp=np.less, fname=model_name+'_best'), EarlyStoppingCallback()]
-            learn = Learner(dls, model, loss_func=MSELossFlat(), metrics=rmse, cbs=cbs)
-            try:
-                learn = learn.lr_find()
-            except:
+            # FastAI + pre-trained TabNet
+            #==============================================================================
+            learn = None
+            i = 0
+            while True:
+                try:
+                    del learn
+                except:
+                    pass
                 learn = 0
-                i += 1
-                print(learn)
-                #learn = get_learner(to)
-            if(learn != 0):
-                break
-            if i > 50:
-                break
+                model = TabNetModel(get_emb_sz(to), len(to.cont_names), dls.c, n_d=64, n_a=64, n_steps=5, virtual_batch_size=256)
+                # save the best model so far
+                cbs = [SaveModelCallback(monitor='_rmse', comp=np.less, fname=model_name+'_best'), EarlyStoppingCallback()]
+                learn = Learner(dls, model, loss_func=MSELossFlat(), metrics=rmse, cbs=cbs)
+                try:
+                    learn = learn.lr_find()
+                except:
+                    learn = 0
+                    i += 1
+                    print(learn)
+                    #learn = get_learner(to)
+                if(learn != 0):
+                    break
+                if i > 50:
+                    break
 
-        if i < 50:
-            learn.fit_one_cycle(7, FASTAI_LEARNING_RATE)
-            plt.figure(figsize=(10, 10))
+            if i < 50:
+                learn.fit_one_cycle(7, FASTAI_LEARNING_RATE)
+                plt.figure(figsize=(10, 10))
+                try:
+                    ax = learn.show_results()
+                    plt.show(block=True)
+                except:
+                    print('Could not show results')
+                    pass
+
+            #==============================================================================
+
+            #fit an xgboost model
+            #==============================================================================
             try:
-                ax = learn.show_results()
-                plt.show(block=True)
+                xgb = XGBRegressor()
+                xgb.fit(X_train, y_train)
+                y_pred = xgb.predict(X_test)
+                print('XGBoost RMSE: ', np.sqrt(mean_squared_error(y_test, y_pred)))
+                #save feature importance plot to file
+                xgb.plot_importance(xgb)
+                plt.savefig(f'{PARAM_DIR}/xgb_feature_importance_{target}.png')
+                #print('XGBoost AUC: ', roc_auc_score(y_test, y_pred))
             except:
-                print('Could not show results')
-                pass
-
-        #==============================================================================
-
-        #fit an xgboost model
-        #==============================================================================
-        xgb = XGBRegressor()
-        xgb.fit(X_train, y_train)
-        y_pred = xgb.predict(X_test)
-        print('XGBoost RMSE: ', np.sqrt(mean_squared_error(y_test, y_pred)))
-        #print('XGBoost AUC: ', roc_auc_score(y_test, y_pred))
+                traceback.print_exc()
+                print('XGBoost failed')
+                continue
     except:
         print(f'error with {project_name}')
         traceback.print_exc()
@@ -367,7 +392,7 @@ def fit_with(lr:float, wd:float, dp:float, n_layers:float, layer_1:float, layer_
         layers = [round(layer_1)]
     config = tabular_config(embed_p=float(dp),
                           ps=float(wd))
-    learn = tabular_learner(dls, layers=layers, metrics=accuracy, config = config)
+    learn = tabular_learner(dls, layers=layers, metrics=accuracy, config = config, cbs=CSVLogger(fname=f'{PARAM_DIR}/fastai_log_{target}.csv', append=True))
 
     with learn.no_bar() and learn.no_logging():
         learn.fit(5, lr=float(lr))

@@ -36,8 +36,8 @@ puppeteer.use(AdblockerPlugin());
         const page = await browser.newPage();
         await page.waitForTimeout(2000)
         try {
-            for (let i = 1; i < 30; i++) {
-                url = `https://www.kaggle.com/datasets?topic=trendingDataset&page=${i}`;
+            for (let i = 1; i < 3; i++) {
+                url = `https://www.kaggle.com/datasets?topic=trendingDataset&sort=published&page=${i}`;
                 await page.goto(url);
                 await page.waitForSelector('li[role="listitem"]');
                 const cardContainer = await page.$(
@@ -74,6 +74,7 @@ puppeteer.use(AdblockerPlugin());
         }
 
         console.log('Done');
+        process.exit(0);
     }
     catch (err) {
         console.log(err);
