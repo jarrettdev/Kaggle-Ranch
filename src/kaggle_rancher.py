@@ -21,6 +21,7 @@ import sys
 import traceback
 #Fit an xgboost model
 from xgboost import XGBRegressor
+from xgboost import plot_importance
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import roc_auc_score
 #Random
@@ -265,7 +266,10 @@ for kaggle_dir in kaggle_directories:
             print(to.xs)
             dls = to.dataloaders()
             print(f'Tabular Object size: {len(to)}')
-            dls.one_batch()
+            try:
+                dls.one_batch()
+            except:
+                print(f'problem with getting one batch of {PROJECT_NAME}')
             #==============================================================================
 
             #Extracting train and test sets from tabular object
@@ -298,7 +302,8 @@ for kaggle_dir in kaggle_directories:
                     models['project'] = PROJECT_NAME
                     models['target'] = target
                     models['target_std'] = target_std
-                    models.to_csv(f'{PARAM_DIR}/regression_results_{target}.csv', mode='a', header=True)
+                    #rename index of 
+                    models.to_csv(f'{PARAM_DIR}/regression_results_{target}.csv', mode='a', header=True, index=True)
                 except:
                     print('Issue during lazypredict analysis')
             else:
@@ -315,8 +320,6 @@ for kaggle_dir in kaggle_directories:
                     models.to_csv(f'{PARAM_DIR}/classification_results.csv', mode='a', header=False)
                 except:
                     print('Issue during lazypredict analysis')
-
-
 
             model_name = 'tabnet'
 
@@ -346,15 +349,19 @@ for kaggle_dir in kaggle_directories:
                 if i > 50:
                     break
 
-            if i < 50:
-                learn.fit_one_cycle(7, FASTAI_LEARNING_RATE)
-                plt.figure(figsize=(10, 10))
-                try:
-                    ax = learn.show_results()
-                    plt.show(block=True)
-                except:
-                    print('Could not show results')
-                    pass
+            try:
+                if i < 50:
+                    learn.fit_one_cycle(7, FASTAI_LEARNING_RATE)
+                    plt.figure(figsize=(10, 10))
+                    try:
+                        ax = learn.show_results()
+                        plt.show(block=True)
+                    except:
+                        print('Could not show results')
+                        pass
+            except:
+                print('Could not fit model')
+                pass
 
             #==============================================================================
 
@@ -363,11 +370,17 @@ for kaggle_dir in kaggle_directories:
             try:
                 xgb = XGBRegressor()
                 xgb.fit(X_train, y_train)
+
                 y_pred = xgb.predict(X_test)
                 print('XGBoost RMSE: ', np.sqrt(mean_squared_error(y_test, y_pred)))
                 #save feature importance plot to file
-                xgb.plot_importance(xgb)
+                plot_importance(xgb)
+                plt.title(f'XGBoost Feature Importance for {PROJECT_NAME} | Target : {target}', wrap=True)
+                plt.tight_layout()
                 plt.savefig(f'{PARAM_DIR}/xgb_feature_importance_{target}.png')
+                #create a dataframe of feature importance
+                xgb_fi = pd.DataFrame(xgb.feature_importances_, index=X_train.columns, columns=['importance'])
+                xgb_fi.to_csv(f'{PARAM_DIR}/xgb_feature_importance_{target}.csv')
                 #print('XGBoost AUC: ', roc_auc_score(y_test, y_pred))
             except:
                 traceback.print_exc()

@@ -7,14 +7,19 @@
 
 - Organizes datasets with their model performances.
 
-- Compare performance on 27 models + a neural network.
-    - Outputs model performance and processed data in CSV format for every dataset.
+- For every dataset scraped:
 
-- Preprocessing
+    - Preprocessing
 
-    - Detects continuous and categorical variables.
+        - Detect continuous and categorical variables.
 
-    - Normalizes and imputes data.
+        - Normalize and impute data.
+
+    - For every target variable:
+        - Compare performance on 27 models + a neural network.
+        - Output model performance and processed data in CSV format for every dataset.
+        - Save plots + csvs of XGBoost Feature Importances.
+
 
 
 - Makes use of FastAI for preprocessing and uses TabNet as a baseline model.
