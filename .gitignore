@@ -5,3 +5,4 @@ kaggle_directories/*
 kaggle/
 node_modules/
 param_files/*
+models/*

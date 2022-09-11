@@ -15,10 +15,10 @@
 
         - Normalize and impute data.
 
-    - For every target variable:
+    - For every target variable in the dataset:
         - Compare performance on 27 models + a neural network.
         - Output model performance and processed data in CSV format for every dataset.
-        - Save plots + csvs of XGBoost Feature Importances.
+        - Save plots + CSVs of XGBoost Feature Importances.
 
 
 
