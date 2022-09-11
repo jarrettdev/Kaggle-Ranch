@@ -263,7 +263,7 @@ for kaggle_dir in kaggle_directories:
                     to = TabularPandas(df, procs, cats, conts, target, splits=splits)
 
             #print(dir(to))
-            print(to.xs)
+            #print(to.xs)
             dls = to.dataloaders()
             print(f'Tabular Object size: {len(to)}')
             try:
@@ -332,22 +332,22 @@ for kaggle_dir in kaggle_directories:
                     del learn
                 except:
                     pass
-                learn = 0
-                model = TabNetModel(get_emb_sz(to), len(to.cont_names), dls.c, n_d=64, n_a=64, n_steps=5, virtual_batch_size=256)
-                # save the best model so far
-                cbs = [SaveModelCallback(monitor='_rmse', comp=np.less, fname=model_name+'_best'), EarlyStoppingCallback()]
-                learn = Learner(dls, model, loss_func=MSELossFlat(), metrics=rmse, cbs=cbs)
                 try:
-                    learn = learn.lr_find()
-                except:
                     learn = 0
-                    i += 1
-                    print(learn)
+                    model = TabNetModel(get_emb_sz(to), len(to.cont_names), dls.c, n_d=64, n_a=64, n_steps=5, virtual_batch_size=256)
+                    # save the best model so far
+                    cbs = [SaveModelCallback(monitor='_rmse', comp=np.less, fname=f'{PARAM_DIR}/{model_name}_{PROJECT_NAME}_{TARGET}_best'), EarlyStoppingCallback()]
+                    learn = Learner(dls, model, loss_func=MSELossFlat(), metrics=rmse, cbs=cbs)
                     #learn = get_learner(to)
-                if(learn != 0):
-                    break
-                if i > 50:
-                    break
+                    if(learn != 0):
+                        break
+                    if i > 50:
+                        break
+                except:
+                    i += 1
+                    print('Error in FastAI TabNet')
+                    traceback.print_exc()
+                    continue
 
             try:
                 if i < 50:
@@ -361,6 +361,7 @@ for kaggle_dir in kaggle_directories:
                         pass
             except:
                 print('Could not fit model')
+                traceback.print_exc()
                 pass
 
             #==============================================================================
