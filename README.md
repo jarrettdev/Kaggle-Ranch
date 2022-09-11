@@ -19,6 +19,7 @@
         - Compare performance on 27 models + a neural network.
         - Output model performance and processed data in CSV format for every dataset.
         - Save plots + CSVs of XGBoost Feature Importances.
+        - Save best performing FastAI model.
 
 
 
